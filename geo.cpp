@@ -2,61 +2,105 @@
 
 _geoData::line::line(const point& first, const point& second)
 {
-	const double x1 = first.x;
-	const double x2 = second.x;
-	const double y1 = first.y;
-	const double y2 = second.y;
-	k = (y2 - y1) / (x2 - x1);
-	b = x1 * (x2 - x1) * (y1 - y2) + y1;
+	a = second.y - first.y;
+	b = first.x - second.x;
+	c = -a * first.x - b * first.y;
 }
 
 _geoData::line::line(const pair& pair)
 {
-	const double x1 = pair.A.x;
-	const double x2 = pair.B.x;
-	const double y1 = pair.A.y;
-	const double y2 = pair.B.y;
-	k = (y2 - y1) / (x2 - x1);
-	b = x1 * (x2 - x1) * (y1 - y2) + y1;
+	(*this) = line(pair.A, pair.B);
 }
 
-const double _geoData::line::operator()(double x) const
+const _geoData::point rotate90(_geoData::point Z)
 {
-	return x * k + b;
+	return _geoData::point(-Z.y, Z.x);
 }
 
 const _geoData::point intersect(const _geoData::line& first, const _geoData::line& second)
 {
-	const double x = (second.b - first.b) / (first.k - second.k);
-	const double y = first(x);
-	return _geoData::point(x, y);
+	double denominator = first.a * second.b - second.a * first.b;
+	if (denominator == 0)
+		return _geoData::point(INFINITY, first.b / first.a);
+	double nominatorX = second.c * first.b - first.c * second.b;
+	double nominatorY = second.c * first.a - first.c * second.a;
+	return _geoData::point(nominatorX / denominator, nominatorY / denominator);
 }
 
-const _geoData::line perpendicular(const _geoData::point& point, const _geoData::line& line)
+const _geoData::pair intersect(const _geoData::circle& first, const _geoData::circle& second)
+{
+	const _geoData::point radicalPoint = ::radicalPoint(first, second);
+	const double firstR2 = first.radius * first.radius;
+	const double secondR2 = second.radius * second.radius;
+	double distance = ::distance(first.center, second.center);
+	if (first.radius + second.radius < distance)
+		return _geoData::pair(_geoData::point(INFINITY, INFINITY), _geoData::point(INFINITY, INFINITY));
+	const _geoData::point centersVector{ (second.center - first.center) / distance };
+	const double height = sqrt((firstR2 + secondR2) / 2 - (firstR2 - secondR2) * (firstR2 - secondR2) / (distance * distance * 4) - distance * distance / 4);
+	const _geoData::point radicalVector{ rotate90(centersVector) * height};
+	const _geoData::point firstIntersection = radicalPoint + radicalVector;
+	const _geoData::point secondIntersection = radicalPoint - radicalVector;
+	return _geoData::pair(firstIntersection, secondIntersection);
+}
+
+const _geoData::point radicalPoint(const _geoData::circle & first, const _geoData::circle & second)
+{
+	const double distance = ::distance(first.center, second.center);
+	const double mFirst = distance * distance - first.radius * first.radius + second.radius * second.radius;
+	const double mSecond = distance * distance + first.radius * first.radius - second.radius * second.radius;
+	const _geoData::pair centeres(first.center, second.center);
+	return barycenter(centeres, mFirst, mSecond);
+}
+
+const _geoData::line radicalAxis(const _geoData::circle& first, const _geoData::circle& second)
+{
+	const _geoData::pair centeres(first.center, second.center);
+	return height(radicalPoint(first, second), _geoData::line(centeres));
+}
+
+const _geoData::line height(const _geoData::point& point, const _geoData::line& line)
 {
 	_geoData::line result;
-	result.k = -1 / line.k;
-	result.b = point.y - result.k * point.x;
+	result.a = -line.b;
+	result.b = line.a;
+	result.c = -line.a * point.y + line.b * point.x;
 	return result;
 }
 
+_geoData::angle::angle(const line& _first, const line & _second)
+	: first{_first}, second{_second}, value{ getAngle(_first, _second)}
+{}
+
 double getAngle( _geoData::line first, const _geoData::line& second)
 {
-	//FIXME:
-	return 0.0;
+	double result = atan(- first.a / first.b) - atan(- second.a / second.b);
+	return result;
+}
+
+const _geoData::angle tangent(const _geoData::point& point, const _geoData::circle& circle)
+{
+	const _geoData::pair tanPoints(tangentPoints(point, circle));
+	const _geoData::line firstTangent(point, tanPoints.A);
+	const _geoData::line secondTangent(point, tanPoints.B);
+	return _geoData::angle(firstTangent, secondTangent);
+}
+
+const _geoData::pair tangentPoints(const _geoData::point& point, const _geoData::circle& circle)
+{
+	const double radius = distance(point, circle.center) / 2;
+	const _geoData::point center = (point + circle.center) / 2;
+	return(intersect(_geoData::circle(center, radius), circle));
 }
 
 bool areBelongOneLine(const _geoData::point& first, const _geoData::point& second, const _geoData::point& third)
 {
 	const _geoData::line AB(first, second);
-	return (AB(third.x) == third.y);
+	return !distance(third, AB);
 }
 
 bool areOnTheOneSide(const _geoData::point& first, const _geoData::point& second, const _geoData::line& line)
 {
-	const double first_diff = first.y - line(first.x);
-	const double second_diff = second.y - line(second.x);
-	return (first_diff >= 0) == (second_diff >= 0);
+	return (distance(first, line) * distance(second, line) >= 0);
 }
 
 bool isInTriangle(const _geoData::point& point, const _geoData::triangle& triangle)
@@ -80,6 +124,11 @@ double distance(const _geoData::point& A, const _geoData::point& B)
 	return sqrt(X * X + Y * Y);
 }
 
+double distance(const _geoData::point& point, const _geoData::line& line)
+{
+	return (line.a * point.x + line.b * point.y + line.c) / sqrt(line.a * line.a + line.b * line.b);
+}
+
 double area(const _geoData::triangle& triangle)
 {
 	const double a = distance(triangle.B, triangle.C);
@@ -89,12 +138,85 @@ double area(const _geoData::triangle& triangle)
 	return sqrt(p * (p - a) * (p - b) * (p - c));
 }
 
+const _geoData::point barycenter(const _geoData::triangle & triangle, double mA, double mB, double mC)
+{
+	return _geoData::point((triangle.A * mA + triangle.B * mB + triangle.C * mC) / (mA + mB + mC));
+}
+
+const _geoData::point barycenter(const _geoData::pair& pair, double mA, double mB)
+{
+	return _geoData::point((pair.A * mA + pair.B * mB) / (mA + mB));
+}
+
+const _geoData::point barycenter(const _geoData::polygon& polygon, std::vector<double> weights)
+{
+	const size_t size = weights.size();
+	assert(polygon.size() == size);
+	_geoData::point result;
+	double summ = 0;
+	for (size_t i = 0; i < size; ++i)
+	{
+		result = result + polygon[i] * weights[i];
+		summ += weights[i];
+	}
+	assert(summ);
+	return result / summ;
+}
+
+const _geoData::point orhtocenter(const _geoData::triangle& triangle)
+{
+	const _geoData::line AB(triangle.A, triangle.B);
+	const _geoData::line BC(triangle.B, triangle.C);
+	_geoData::line heightA = height(triangle.A, BC);
+	_geoData::line heightC = height(triangle.C, AB);
+	return intersect(heightA, heightC);
+}
+
+const _geoData::point incenter(const _geoData::triangle& triangle)
+{
+	const double a = distance(triangle.B, triangle.C);
+	const double b = distance(triangle.A, triangle.C);
+	const double c = distance(triangle.A, triangle.B);
+	return barycenter(triangle, a, b, c);
+}
+
+const _geoData::triangle excenters(const _geoData::triangle& triangle)
+{
+	const double a = distance(triangle.B, triangle.C);
+	const double b = distance(triangle.A, triangle.C);
+	const double c = distance(triangle.A, triangle.B);
+	_geoData::point exA(barycenter(triangle, -a, b, c));
+	_geoData::point exB(barycenter(triangle, a, -b, c));
+	_geoData::point exC(barycenter(triangle, a, b, -c));
+	return _geoData::triangle(exA, exB, exC);
+}
+
+const _geoData::point center(const _geoData::triangle& triangle)
+{
+	return _geoData::point((triangle.A + triangle.B + triangle.C) / 3);
+}
+
+const _geoData::point center(const _geoData::pair& pair)
+{
+	return _geoData::point((pair.A + pair.B) / 2);
+}
+
+const _geoData::point center(const _geoData::polygon & polygon)
+{
+	_geoData::point result;
+	for (size_t i = 0; i < polygon.size(); ++i)
+		result = result + polygon[i];
+	result = result / polygon.size();
+	return result;
+}
+
 _geoData::circle::circle(const triangle& triangle)
 {
 	const double a = distance(triangle.B, triangle.C);
 	const double b = distance(triangle.A, triangle.C);
 	const double c = distance(triangle.A, triangle.B);
 	radius = a * b * c / (area(triangle) * 4);
+	center = ::center(triangle) * 1.5 - orhtocenter(triangle) / 2;
 }
 
 const _geoData::point circumcenter(const _geoData::triangle& triangle)
@@ -103,13 +225,16 @@ const _geoData::point circumcenter(const _geoData::triangle& triangle)
 }
 
 #include <iostream>
+
+void print(_geoData::point Z)
+{
+	std::cout << "(" << Z.x << "; " << Z.y << ") ";
+}
+
 int main()
 {
-	_geoData::point f(0, 1);
-	_geoData::point s(1, 2);
-
-	_geoData::line l(f, s);
-
-	std::cout << l.k << " " << l.b;
+	print(tangentPoints(_geoData::point(0, 0), _geoData::circle(_geoData::point(1, 1), 1)).A);
+	print(tangentPoints(_geoData::point(0, 0), _geoData::circle(_geoData::point(1, 1), 1)).B);
+	print(tangent(_geoData::point(0, 0), _geoData::circle(_geoData::point(1, 1), 1)).value);
 	system("pause");
 }
