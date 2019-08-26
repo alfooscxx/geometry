@@ -91,18 +91,21 @@ struct _geoData
 	};
 };
 
+const _geoData::point symmetry(const _geoData::point& point, const _geoData::point& center);
+const _geoData::point symmetry(const _geoData::point& point, const _geoData::line& axis);
+const _geoData::point homothety(const _geoData::point& point, const _geoData::point& center, const double k);
+const _geoData::point proection(const _geoData::point& point, const _geoData::line& line);
 const _geoData::point rotate90(_geoData::point Z);
 
 const _geoData::point intersect(const _geoData::line& first, const _geoData::line& second);
-//const _geoData::point intersect(const _geoData::line& line, const _geoData::circle& circle);
-//const _geoData::point intersect(const _geoData::circle& circle, const _geoData::line& line);
+const _geoData::pair intersect(const _geoData::line& line, const _geoData::circle& circle);
+const _geoData::pair intersect(const _geoData::circle& circle, const _geoData::line& line);
 const _geoData::pair intersect(const _geoData::circle& first, const _geoData::circle& second);
 
 const _geoData::point radicalPoint(const _geoData::circle& first, const _geoData::circle& second);
 const _geoData::line radicalAxis(const _geoData::circle& first, const _geoData::circle& second);
 
 const _geoData::line height(const _geoData::point& point, const _geoData::line& line);
-
 
 double getAngle(_geoData::line first, const _geoData::line& second);
 const _geoData::angle tangent(const _geoData::point& point, const _geoData::circle& circle);
@@ -121,7 +124,7 @@ const _geoData::point barycenter(const _geoData::triangle& triangle, double mA, 
 const _geoData::point barycenter(const _geoData::pair& pair, double mA, double mB);
 const _geoData::point barycenter(const _geoData::polygon& polygon, std::vector<double> weights);
 
-const _geoData::point orhtocenter(const _geoData::triangle& triangle);
+const _geoData::point orthocenter(const _geoData::triangle& triangle);
 const _geoData::point incenter(const _geoData::triangle& triangle);
 const _geoData::triangle excenters(const _geoData::triangle& triangle);
 const _geoData::point circumcenter(const _geoData::triangle& triangle);

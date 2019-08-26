@@ -12,6 +12,26 @@ _geoData::line::line(const pair& pair)
 	(*this) = line(pair.A, pair.B);
 }
 
+const _geoData::point symmetry(const _geoData::point& point, const _geoData::point& center)
+{
+	return center * 2 - point;
+}
+
+const _geoData::point symmetry(const _geoData::point& point, const _geoData::line& axis)
+{
+	return symmetry(point, proection(point, axis));
+}
+
+const _geoData::point homothety(const _geoData::point& point, const _geoData::point& center, const double k)
+{
+	return center + (point - center) * k;
+}
+
+const _geoData::point proection(const _geoData::point& point, const _geoData::line& line)
+{
+	return intersect(line, height(point, line));
+}
+
 const _geoData::point rotate90(_geoData::point Z)
 {
 	return _geoData::point(-Z.y, Z.x);
@@ -25,6 +45,20 @@ const _geoData::point intersect(const _geoData::line& first, const _geoData::lin
 	double nominatorX = second.c * first.b - first.c * second.b;
 	double nominatorY = second.c * first.a - first.c * second.a;
 	return _geoData::point(nominatorX / denominator, nominatorY / denominator);
+}
+
+const _geoData::pair intersect(const _geoData::line& line, const _geoData::circle& circle)
+{
+	const _geoData::point center_symm = symmetry(circle.center, line);
+	const _geoData::circle circle_symm(center_symm, circle.radius);
+	return intersect(circle, circle_symm);
+}
+
+const _geoData::pair intersect(const _geoData::circle& circle, const _geoData::line& line)
+{
+	const _geoData::point center_symm = symmetry(circle.center, line);
+	const _geoData::circle circle_symm(center_symm, circle.radius);
+	return intersect(circle, circle_symm);
 }
 
 const _geoData::pair intersect(const _geoData::circle& first, const _geoData::circle& second)
@@ -163,7 +197,7 @@ const _geoData::point barycenter(const _geoData::polygon& polygon, std::vector<d
 	return result / summ;
 }
 
-const _geoData::point orhtocenter(const _geoData::triangle& triangle)
+const _geoData::point orthocenter(const _geoData::triangle& triangle)
 {
 	const _geoData::line AB(triangle.A, triangle.B);
 	const _geoData::line BC(triangle.B, triangle.C);
@@ -216,7 +250,7 @@ _geoData::circle::circle(const triangle& triangle)
 	const double b = distance(triangle.A, triangle.C);
 	const double c = distance(triangle.A, triangle.B);
 	radius = a * b * c / (area(triangle) * 4);
-	center = ::center(triangle) * 1.5 - orhtocenter(triangle) / 2;
+	center = homothety(orthocenter(triangle), ::center(triangle), -1 / 2);
 }
 
 const _geoData::point circumcenter(const _geoData::triangle& triangle)
@@ -228,13 +262,18 @@ const _geoData::point circumcenter(const _geoData::triangle& triangle)
 
 void print(_geoData::point Z)
 {
+	if (Z.x < 0.0000000001)
+		Z.x = 0;
+	if (Z.y < 0.0000000001)
+		Z.y = 0;
 	std::cout << "(" << Z.x << "; " << Z.y << ") ";
 }
 
 int main()
 {
-	print(tangentPoints(_geoData::point(0, 0), _geoData::circle(_geoData::point(1, 1), 1)).A);
-	print(tangentPoints(_geoData::point(0, 0), _geoData::circle(_geoData::point(1, 1), 1)).B);
-	print(tangent(_geoData::point(0, 0), _geoData::circle(_geoData::point(1, 1), 1)).value);
+	_geoData::circle circle(_geoData::point(2, 1), sqrt(2));
+	_geoData::line line(_geoData::point(0, 0), _geoData::point(1, 0));
+	print(intersect(line, circle).A);
+	print(intersect(circle, line).B);
 	system("pause");
 }
